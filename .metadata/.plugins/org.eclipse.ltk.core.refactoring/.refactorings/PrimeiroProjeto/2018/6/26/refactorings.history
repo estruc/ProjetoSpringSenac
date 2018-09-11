@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Copy element &apos;PedidoRepositorio.java&apos; to &apos;PrimeiroProjeto/src/main/java/br.com.senac.repositorio&apos;&#x0D;&#x0A;- Original project: &apos;PrimeiroProjeto&apos;&#x0D;&#x0A;- Destination element: &apos;PrimeiroProjeto/src/main/java/br.com.senac.repositorio&apos;&#x0D;&#x0A;- Original element: &apos;br.com.senac.repositorio.PedidoRepositorio.java&apos;" description="Copy compilation unit" destination="/src\/main\/java&lt;br.com.senac.repositorio" element1="/src\/main\/java&lt;br.com.senac.repositorio{PedidoRepositorio.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.copy" policy="org.eclipse.jdt.ui.copyResources" stamp="1530286158471" units="1" version="1.0"/>
+</session>

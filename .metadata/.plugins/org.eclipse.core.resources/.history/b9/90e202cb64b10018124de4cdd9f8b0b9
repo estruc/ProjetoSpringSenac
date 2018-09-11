@@ -1,0 +1,164 @@
+package br.com.senac.servico;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort.Direction;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import br.com.senac.dominio.Aluno;
+import br.com.senac.dominio.Cidade;
+import br.com.senac.dominio.Endereco;
+import br.com.senac.dominio.enums.Perfil;
+import br.com.senac.dto.AlunoCompletoDTO;
+import br.com.senac.repositorio.AlunoRepositorio;
+import br.com.senac.repositorio.EnderecoRepositorio;
+import br.com.senac.security.UsuarioSS;
+import br.com.senac.servico.exception.AuthorizationException;
+import br.com.senac.servico.exception.ObjectNotFoundException;
+
+
+import java.net.URI;
+import org.springframework.web.multipart.MultipartFile;
+
+
+@Service
+public class AlunoService {
+
+	@Autowired
+	private S3Service s3Service;
+	
+	@Autowired
+	private BCryptPasswordEncoder pe;
+	
+	
+	@Autowired
+	private AlunoRepositorio repoAluno;
+	
+	@Autowired
+	private EnderecoRepositorio repoEndereco;
+
+	
+	public Aluno buscar(Integer id) {
+		
+		// pegando o usuario logado
+		UsuarioSS user = UserService.authenticated(); 
+		// verificando se o usuario logado nao é monitor e se nao é o usuario que ele quer buscar
+		if (user==null || !user.hasRole(Perfil.MONITOR) && !id.equals(user.getId())) {
+			throw new AuthorizationException("Acesso negado");
+		}
+		
+		
+		Optional<Aluno> objAluno = repoAluno.findById(id);
+		return objAluno.orElseThrow(() -> new ObjectNotFoundException(
+				"Aluno não encontrado! Id: " + id + ", Tipo: " + Aluno.class.getName()));
+	}
+	
+
+	public List<Aluno> listaAlunos() {
+
+		return repoAluno.findAll();
+
+	}
+	
+	// Integer page - pagina atual
+	//Integer linesPerPage - resultados por pagina
+	// String orderBy - ordenador por qual coluna
+	//String direction - sera ordernado por desc ou asc
+	public Page<Aluno> listaAlunoPaginacao(Integer page, Integer linesPerPage, String orderBy, String direction) {
+
+		PageRequest pageRequest = PageRequest.of(page, linesPerPage, Direction.valueOf(direction), orderBy);
+
+		return repoAluno.findAll(pageRequest);
+
+	}
+	
+	
+	@Transactional // temos que fazer transacional pois estamso incluindo em duas tabelas. Se der problema em uma nao pode incluir na outra
+	public Aluno inserir(Aluno objAluno) {
+		// estou colocando um objeto novo entao o id precisa ser null
+		objAluno.setId(null);
+		objAluno = repoAluno.save(objAluno);
+		repoEndereco.saveAll(objAluno.getEnderecos());
+		return objAluno;
+	}
+	
+	
+	public Aluno alterar(Aluno objAluno) {
+
+		Aluno objAlunoEncontrado = buscar(objAluno.getId());
+		objAlunoEncontrado.setEmail(objAluno.getEmail());
+		objAlunoEncontrado.setNome(objAluno.getNome());
+		return repoAluno.save(objAlunoEncontrado);
+		
+	}
+	
+	
+	public void delete(Integer id) {
+
+		repoAluno.deleteById(id);
+	}
+	
+	
+	
+	public Aluno criarAlunoCompleto(AlunoCompletoDTO objDto) {
+
+		Aluno aluno = new Aluno();
+		aluno.setId(null);
+		aluno.setNome(objDto.getNome());
+		aluno.setEmail(objDto.getEmail());
+		aluno.setSenha(pe.encode(objDto.getSenha()));
+		Cidade cid = new Cidade();
+		cid.setId(objDto.getCidadeId());
+		
+
+		Endereco end = new Endereco();
+		end.setId(null);
+		end.setRua(objDto.getRua());
+		end.setNumero(objDto.getNumero());
+		end.setComplemento(objDto.getComplemento());
+		end.setBairro(objDto.getBairro());
+		end.setCep(objDto.getCep());
+		end.setAluno(aluno);
+		end.setCidade(cid);
+		
+		aluno.getEnderecos().add(end);
+		
+		aluno.getTelefones().add(objDto.getTelefone1());
+		
+		if (objDto.getTelefone2()!=null) {
+			aluno.getTelefones().add(objDto.getTelefone2());
+		}
+
+		if (objDto.getTelefone3()!=null) {
+			aluno.getTelefones().add(objDto.getTelefone3());
+		}
+		
+		return aluno;
+
+	}
+	
+	public URI uploadProfilePicture(MultipartFile multipartFile) {
+		// pegando o usuario logado
+		UsuarioSS user = UserService.authenticated(); 
+		// verificando se o usuario logado nao é monitor e se nao é o usuario que ele quer buscar
+		if (user==null) {
+			throw new AuthorizationException("Acesso negado");
+		}
+		URI uri = s3Service.uploadFile(multipartFile);
+		Optional<Aluno> aluno = repoAluno.findById(user.getId());
+		
+		aluno.setImageUrl(uri.toString());
+		repo.save(aluno);
+		
+	}
+	
+	
+	
+	
+}
